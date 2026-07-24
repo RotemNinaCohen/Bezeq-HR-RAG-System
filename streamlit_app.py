@@ -34,6 +34,7 @@ def get_services():
 
 openai_client, collection = get_services()
 
+
 def rewrite_and_correct_query(user_raw_input: str, openai_client) -> str:
     """
     מקבלת את קלט המשתמש הגולמי, מתקנת שגיאות כתיב/דפוס,
@@ -165,24 +166,6 @@ with st.sidebar:
         st.session_state.messages = []
         st.rerun()
 
-
-# פונקציית טיוב שאילתה מול LLM
-def optimize_query(user_text):
-    try:
-        response = openai_client.chat.completions.create(
-            model="gpt-4o-mini",
-            messages=[
-                {"role": "system",
-                 "content": "אתה מומחה בניסוח שאילתות לחיפוש במאגר נהלים של חברות ותנאי העסקה. נסח מחדש והרחב את שאלת העובד כך שתכלול מונחים רשמיים מעולם משאבי האנוש וההסכמים הקיבוציים, אך אל תמציא עובדות. החזר אך ורק את השאילתה המטויבת בשורה אחת."},
-                {"role": "user", "content": user_text}
-            ],
-            temperature=0.1
-        )
-        return response.choices[0].message.content.strip()
-    except Exception:
-        return user_text
-
-
 # כותרת הצ'אט
 col_logo, col_title = st.columns([1, 8])
 with col_logo:
@@ -229,8 +212,10 @@ if prompt := st.chat_input("הקלידו את השאלה שלכם כאן (לדו
     with st.chat_message("assistant"):
         with st.status("⚙️ מעבד את השאילתה מול מאגרי הידע הארגוניים...", expanded=True) as status:
             st.write("1️⃣ מבצע טיוב שאילתה מול ה-LLM (Query Optimization)...")
-            optimized_query = optimize_query(prompt)
-            st.caption(f"✨ שאילתה מטויבת לחיפוש: `{optimized_query}`")
+            
+            # --- הפעלת מנגנון הטיוב החכם ---
+            optimized_query = rewrite_and_correct_query(prompt, openai_client)
+            st.caption(f"✨ מנוע ה-AI תיקן את השאילתה ל: **{optimized_query}**")
 
             st.write("2️⃣ שולף קטעים רלוונטיים מ-ChromaDB (Vector Retrieval)...")
             results = collection.query(
