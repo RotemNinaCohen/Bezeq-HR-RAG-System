@@ -189,35 +189,31 @@ with st.sidebar:
 # ==========================================
 # מסך 4: תצוגת דשבורד מנהלים (רק למנהל מחובר שנכנס לדשבורד)
 # ==========================================
+
 if st.session_state.current_view == "dashboard" and user["id"] == "EMP_ADMIN":
-    st.title("📈 דוח מנהלים וקבלת החלטות - RAG משאבי אנוש בזק")
-    st.markdown("דשבורד זה מציג תזמונים, מדדי שימוש, שביעות רצון וזיהוי פערי ידע מתוך לוגי המערכת (ERD).")
+    st.title("📈 דוח מנהלים: ניתוח אנליטי של סטטיסטיקות המענה")
+    st.markdown("דשבורד זה מציג נתונים סטטיסטיים אודות השימוש במערכת ה-RAG, כולל פירוט סשנים ומשובי משתמשים.")
     st.markdown("---")
 
     try:
         conn = sqlite3.connect("bezeq_analytics_erd.db")
         
-        # שליפת מדדים כלליים מהטבלאות המעודכנות
+        # --- כאן נמצאות שאילתות ה-SQL שצריך להתאים למסד הנתונים שלך ---
         total_queries_df = pd.read_sql_query("SELECT COUNT(*) as total FROM queries", conn)
         total_queries = total_queries_df['total'][0] if not total_queries_df.empty else 0
 
-        # אחוז שביעות רצון מתוך טבלת הפידבקים
         feedback_df = pd.read_sql_query("SELECT AVG(is_positive) as avg_sat FROM feedback", conn)
         satisfaction_rate = round(feedback_df['avg_sat'][0] * 100, 1) if not feedback_df.empty and pd.notna(feedback_df['avg_sat'][0]) else 0.0
 
-        # שליפת כל השאלות והמשובים לטבלה ראשית
+        # שליפת הנתונים הספציפיים שביקשת (תאריך, סשן, שאלה, שביעות רצון ותגובה)
         queries_df = pd.read_sql_query("""
             SELECT 
-                q.query_id,
-                q.timestamp,
-                q.session_id,
-                s.employee_id,
-                q.user_query,
-                q.ai_response,
-                f.is_positive,
-                f.user_comment
+                q.timestamp as 'תאריך ושעה',
+                q.session_id as 'מספר סשן',
+                q.user_query as 'שאלת העובד',
+                f.is_positive as 'מרוצה? (1=כן, 0=לא)',
+                f.user_comment as 'תגובת העובד (סיבת אי-שביעות רצון)'
             FROM queries q
-            LEFT JOIN sessions s ON q.session_id = s.session_id
             LEFT JOIN feedback f ON q.query_id = f.query_id
             ORDER BY q.timestamp DESC
         """, conn)
@@ -231,30 +227,30 @@ if st.session_state.current_view == "dashboard" and user["id"] == "EMP_ADMIN":
         with col2:
             st.metric(label="⭐ אחוז שביעות רצון", value=f"{satisfaction_rate}%")
         with col3:
-            st.metric(label="💬 סך הכל משובים במערכת", value=len(queries_df[queries_df['is_positive'].notna()]) if not queries_df.empty else 0)
+            st.metric(label="💬 סך הכל משובים במערכת", value=len(queries_df[queries_df['מרוצה? (1=כן, 0=לא)'].notna()]) if not queries_df.empty else 0)
 
         st.markdown("---")
 
-        # הצגת טבלת הנתונים המלאה והאינטראקטיבית
-        st.subheader("📋 פירוט שיחות העובדים ומשובים ארגוניים")
+        # הצגת טבלת הנתונים למנהלים
+        st.subheader("📋 פירוט סשנים ומשובים")
 
         if queries_df.empty:
             st.info("עדיין אין נתונים להצגה. המערכת מחכה לשאלות הראשונות!")
         else:
-            filter_option = st.selectbox("סינון תצוגה:", ["הצג הכל", "הצג משובים שליליים / בעיות בלבד (👎)"])
+            filter_option = st.selectbox("סינון תצוגה:", ["הצג הכל", "הצג תגובות של עובדים שאינם מרוצים"])
             
             display_df = queries_df.copy()
-            if filter_option == "הצג משובים שליליים / בעיות בלבד (👎)":
-                display_df = display_df[display_df['is_positive'] == 0]
+            if filter_option == "הצג תגובות של עובדים שאינם מרוצים":
+                display_df = display_df[display_df['מרוצה? (1=כן, 0=לא)'] == 0]
 
             st.dataframe(
-                display_df[['timestamp', 'employee_id', 'user_query', 'ai_response', 'is_positive', 'user_comment']],
+                display_df,
                 use_container_width=True,
                 hide_index=True
             )
 
     except Exception as e:
-        st.error(f"שגיאה בחיבור למסד הנתונים (ייתכן שעדיין לא נוצרו שאילתות במערכת): {e}")
+        st.error(f"שגיאה בחיבור למסד הנתונים: {e}")
 
 # ==========================================
 # מסך 5: תצוגת הצ'אט הראשי (מוצג לעובדים רגילים או למנהל במצב צ'אט)
