@@ -34,6 +34,29 @@ def get_services():
 
 openai_client, collection = get_services()
 
+def rewrite_and_correct_query(user_raw_input: str, openai_client) -> str:
+    """
+    מקבלת את קלט המשתמש הגולמי, מתקנת שגיאות כתיב/דפוס,
+    וממירה אותו לשאילתת חיפוש מקצועית.
+    """
+    system_prompt = """
+    אתה רכיב טיוב שאילתות עבור מנוע חיפוש נהלים.
+    תפקידך לתקן שגיאות כתיב, להמיר סלנג למונחים מקצועיים (למשל: "הבאה" -> "הבראה", "אשל" -> "אש"ל"), ולהרחיב שאלות קצרות למשפט ברור.
+    החזר אך ורק את השאילתה המתוקנת בשורה אחת בלבד, ללא שום טקסט נוסף.
+    """
+    try:
+        response = openai_client.chat.completions.create(
+            model="gpt-4o-mini",
+            messages=[
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": user_raw_input}
+            ],
+            temperature=0.0
+        )
+        return response.choices[0].message.content.strip()
+    except Exception as e:
+        return user_raw_input # במקרה של שגיאה, נחזיר את השאלה המקורית
+        
 # ==========================================
 # 2. מאגר עובדים ומנגנון אבטחה (SSO & 2FA Auth)
 # ==========================================
