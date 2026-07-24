@@ -189,7 +189,6 @@ with st.sidebar:
 # ==========================================
 # מסך 4: תצוגת דשבורד מנהלים (רק למנהל מחובר שנכנס לדשבורד)
 # ==========================================
-
 if st.session_state.current_view == "dashboard" and user["id"] == "EMP_ADMIN":
     st.title("📈 דוח מנהלים: ניתוח אנליטי של סטטיסטיקות המענה")
     st.markdown("דשבורד זה מציג נתונים סטטיסטיים אודות השימוש במערכת ה-RAG, כולל פירוט סשנים ומשובי משתמשים.")
@@ -198,22 +197,22 @@ if st.session_state.current_view == "dashboard" and user["id"] == "EMP_ADMIN":
     try:
         conn = sqlite3.connect("bezeq_analytics_erd.db")
         
-        # --- כאן נמצאות שאילתות ה-SQL שצריך להתאים למסד הנתונים שלך ---
-        total_queries_df = pd.read_sql_query("SELECT COUNT(*) as total FROM queries", conn)
+        # שימוש בשם הטבלה האמיתי: query_log
+        total_queries_df = pd.read_sql_query("SELECT COUNT(*) as total FROM query_log", conn)
         total_queries = total_queries_df['total'][0] if not total_queries_df.empty else 0
 
         feedback_df = pd.read_sql_query("SELECT AVG(is_positive) as avg_sat FROM feedback", conn)
         satisfaction_rate = round(feedback_df['avg_sat'][0] * 100, 1) if not feedback_df.empty and pd.notna(feedback_df['avg_sat'][0]) else 0.0
 
-        # שליפת הנתונים הספציפיים שביקשת (תאריך, סשן, שאלה, שביעות רצון ותגובה)
+        # שליפת הנתונים הספציפיים תוך שימוש בשמות העמודות המדויקים (user_question במקום user_query)
         queries_df = pd.read_sql_query("""
             SELECT 
                 q.timestamp as 'תאריך ושעה',
                 q.session_id as 'מספר סשן',
-                q.user_query as 'שאלת העובד',
+                q.user_question as 'שאלת העובד',
                 f.is_positive as 'מרוצה? (1=כן, 0=לא)',
                 f.user_comment as 'תגובת העובד (סיבת אי-שביעות רצון)'
-            FROM queries q
+            FROM query_log q
             LEFT JOIN feedback f ON q.query_id = f.query_id
             ORDER BY q.timestamp DESC
         """, conn)
