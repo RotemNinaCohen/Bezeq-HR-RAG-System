@@ -37,7 +37,7 @@ def get_services():
 openai_client, collection = get_services()
 
 
-def rewrite_and_correct_query(user_raw_input: str, openai_client) -> str:
+def rewrite_and_correct_query_OLD(user_raw_input: str, openai_client) -> str:
     """
     מקבלת את קלט המשתמש הגולמי, מתקנת שגיאות כתיב/דפוס קשות (כולל שגיאות פונטיות),
     וממירה אותו לשאילתת חיפוש מקצועית.
@@ -74,6 +74,49 @@ def rewrite_and_correct_query(user_raw_input: str, openai_client) -> str:
         return response.choices[0].message.content.strip()
     except Exception as e:
         return user_raw_input # במקרה של שגיאה, נחזיר את השאלה המקורית
+
+# תיקון לקוד שגיאות כתיב וטיוב שאילתה
+def rewrite_and_correct_query(user_raw_input: str, openai_client) -> str:
+    """
+    מבצעת טיוב כפול:
+    1. תיקון שגיאות כתיב ופונטיות קשות.
+    2. Query Expansion - הוספת מילים נרדפות מעולם ה-HR כדי "לדוג" את הנהלים הנכונים.
+    """
+    system_prompt = """
+    אתה מנתח שאילתות בכיר עבור מנוע חיפוש נהלי HR בחברת בזק.
+    המטרה שלך היא לקחת את שאלת העובד (שלרוב מנוסחת בסלנג או עם שגיאות), ולייצר ממנה "מחרוזת חיפוש סמנטית עשירה".
+    
+    חוקי עבודה:
+    1. תקן כל שגיאת כתיב או שגיאה פונטית (למשל: "השל" -> "אש"ל", "מגיא" -> "מגיע").
+    2. הוסף מילות מפתח נרדפות ומונחים מקצועיים שסביר שיופיעו במסמכים הרשמיים, כדי להרחיב את החיפוש.
+    
+    דוגמאות:
+    קלט: "אילו הטבות מגיעים להורים?"
+    פלט: "הטבות להורים, זכויות אם ואב, סבסוד קייטנות, השתתפות מעונות צהרונים, ימי מחלת ילד, חופשת לידה."
+    
+    קלט: "מתי אני מקבל דמי הבאה"
+    פלט: "דמי הבראה, תשלום הבראה, קצבת הבראה, הסכם קיבוצי הבראה."
+    
+    קלט: "כמה ימי מחלה מגיעים לי על הבן שלי שחולה?"
+    פלט: "ימי מחלת ילד, היעדרות בגין מחלת ילד, זכאות לימי מחלה משפחה."
+    
+    החזר אך ורק את מחרוזת החיפוש המורחבת, ללא הקדמות, פתיחים או מרכאות.
+    """
+    try:
+        response = openai_client.chat.completions.create(
+            model="gpt-4o-mini",
+            messages=[
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": user_raw_input}
+            ],
+            temperature=0.3 
+        )
+        expanded_query = response.choices[0].message.content.strip()
+        print(f"DEBUG - Original: {user_raw_input} | Expanded: {expanded_query}")
+        return expanded_query
+    except Exception as e:
+        print(f"Error in query expansion: {e}")
+        return user_raw_input
         
 # ==========================================
 # 2. מאגר עובדים ומנגנון אבטחה (SSO & 2FA Auth)
